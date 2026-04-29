@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Interactive Phone UI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+    * {
+    -webkit-tap-highlight-color: transparent;
+}
+
+    /* ===== REELS CSS (แก้ไข Layout ให้พอดีจอ) ===== */
+    .ig-reels-container {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        overflow-y: scroll;
+        scroll-snap-type: y mandatory;
+        scroll-behavior: smooth;
+        background: #000;
+        position: relative;
+        z-index: 5;
+    }
+    .ig-reels-container::-webkit-scrollbar { display: none; }
+
+    .reels-item {
+        width: 100%;
+        height: 100%; 
+        flex: 0 0 100%; /* จุดสำคัญ! บังคับให้ 1 คลิปกินพื้นที่ 1 หน้าจอเต็มๆ แก้ปัญหาคลิปซ้อนกัน */
+        scroll-snap-align: start;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    .reels-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* ไอจีปกติใช้ cover เพื่อให้วิดีโอเต็มขอบ แต่ถ้าเบ๊บอยากให้เห็นวิดีโอแบบไม่โดนตัดขอบซ้ายขวาเลย ลองเปลี่ยนเป็น contain ดูได้นะคะ */
+    }
+
+    .reels-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .reels-top-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 40px 20px 10px;
+        font-size: 1.2rem;
+        font-weight: 700;
+        display: flex;
+        justify-content: space-between;
+        text-shadow: 0 1px 5px rgba(0,0,0,0.5);
+    }
+
+    /* โซนด้านขวา: ขยับขึ้นมาให้พ้นแถบเมนูด้านล่าง */
+    .reels-right-actions {
+        position: absolute;
+        bottom: 80px; /* แก้จาก 20px เป็น 80px เพื่อดันขึ้นมาให้เหมือน IG จริง */
+        right: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        align-items: center;
+        pointer-events: all;
+    }
+
+    .reels-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        transition: transform 0.1s;
+    }
+    .reels-btn:active { transform: scale(0.9); }
+    .reels-btn i { font-size: 1.6rem; text-shadow: 0 1px 5px rgba(0,0,0,0.5); }
+    .reels-btn span { font-size: 0.7rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+
+    /* โซนด้านล่าง (ชื่อ, แคปชั่น, เพลง): ขยับขึ้นมาให้อยู่ระดับเดียวกับแถบขวา */
+    .reels-bottom-info {
+        position: absolute;
+        bottom: 80px; /* ดันขึ้นมา 80px ให้เห็น 🎵 ชัดเจนไม่ต้องเลื่อน */
+        left: 15px;
+        width: 75%;
+        pointer-events: all;
+    }
+
+    .reels-user-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+    .reels-user-row img {
+        width: 32px; height: 32px; border-radius: 50%; border: 1px solid white;
+    }
+    .reels-user-row .username { font-size: 0.95rem; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    .reels-user-row .follow-btn {
+        border: 1px solid white; border-radius: 6px; padding: 3px 8px; font-size: 0.75rem; font-weight: 600;
+        background: rgba(0,0,0,0.2); backdrop-filter: blur(2px); cursor: pointer;
+    }
+
+    .reels-caption { font-size: 0.85rem; line-height: 1.4; margin-bottom: 8px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    .reels-music {
+        display: flex; align-items: center; gap: 8px; font-size: 0.8rem; background: rgba(0,0,0,0.3);
+        padding: 5px 10px; border-radius: 15px; width: max-content; backdrop-filter: blur(5px);
+    }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-touch-callout: none; font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif; }
+        body { background-color: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+
+        #device {
+            width: 100vw; height: 100vh; max-width: 430px; max-height: 932px;
+            position: relative; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border-radius: 40px; border: 14px solid #111;
+            background-color: black;
+        }
+
+        /* ===== COMMON SCREEN ===== */
+        .screen {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+        }
+
+        /* ===== HOME SCREEN ===== */
+        #home-layer {
+            z-index: 10;
+            opacity: 0;
+            transform: scale(1.1);
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
+        }
+        #home-layer.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: all;
+        }
+        #home-bg {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+
+        /* Custom Status Bar (Home) */
+        .custom-status-bar {
+            position: absolute; top: 12px; left: 0; width: 100%;
+            display: flex; justify-content: space-between; padding: 0 25px;
+            color: white; font-size: 0.95rem; font-weight: 600; z-index: 20;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .custom-status-bar .left { display: flex; align-items: center; gap: 4px; }
+        .custom-status-bar .right { display: flex; align-items: center; gap: 6px; }
+        
+        .custom-battery {
+            width: 25px; height: 12px; border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 4px; position: relative; padding: 1px;
+            display: flex; align-items: center; margin-left: 2px;
+        }
+        .custom-battery::after {
+            content: ''; position: absolute; right: -3px; top: 3px;
+            width: 2px; height: 4px; background: rgba(255,255,255,0.6); border-radius: 1px;
+        }
+        .custom-battery-fill {
+            height: 100%; background: white; border-radius: 1px; width: 54%;
+        }
+        .battery-text {
+            position: absolute; width: 100%; text-align: center; left: 0;
+            font-size: 0.55rem; color: #000; font-weight: 800; z-index: 2; line-height: 12px;
+        }
+
+        /* App Hitboxes */
+        .app-hitbox {
+            position: absolute; z-index: 15; cursor: pointer;
+            border-radius: 20px;
+        }
+
+        /* ===== INSTAGRAM APP (PHASE 1) ===== */
+        #ig-layer {
+            z-index: 50; background: #000;
+            transform-origin: 15% 15%;
+            transform: scale(0);
+            opacity: 0; pointer-events: none;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
+        }
+        #ig-layer.active {
+            transform: scale(1);
+            opacity: 1; pointer-events: all;
+        }
+        .empty-app-state {
+            color: white; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: 600; opacity: 0.5;
+        }
+
+        /* ===== LOCK SCREEN ===== */
+        #ls-layer {
+            z-index: 20;
+            transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+        }
+
+        #bg-video {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 1;
+            object-fit: cover; object-position: center;
+        }
+
+        .status-bar {
+            position: absolute; top: 12px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 30px;
+            color: white; font-size: 1rem; font-weight: 500; z-index: 10;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .clock-area {
+            position: absolute; top: 8%; width: 100%; text-align: center;
+            color: white; text-shadow: 0 2px 15px rgba(0,0,0,0.5); z-index: 5;
+        }
+        .date-display { font-size: 1.4rem; font-weight: 500; margin-bottom: -5px; }
+        .clock-display { font-size: 7rem; font-weight: 200; letter-spacing: -2px; }
+
+        #spotify-widget {
+            position: absolute; bottom: 18%; left: 5%; width: 90%;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 20px; padding: 16px;
+            display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); backdrop-filter: blur(15px); z-index: 5;
+        }
+        .widget-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+        .widget-body { display: flex; align-items: center; gap: 16px; }
+        .album-cover { width: 65px; height: 65px; border-radius: 8px; background-size: cover; background-position: center; background-color: #ccc; }
+        .track-info-container { flex: 1; }
+        .track-title { font-size: 1.1rem; font-weight: 600; color: #191414; }
+        .track-artist { font-size: 1rem; color: #555; }
+        .controls { display: flex; justify-content: space-around; font-size: 2rem; color: #191414; padding-top: 5px; }
+        .control-btn { cursor: pointer; transition: transform 0.1s ease; }
+        .control-btn:active { transform: scale(0.9); }
+        .control-btn.disabled { opacity: 0.2; cursor: not-allowed; transform: none; }
+
+        .bottom-tools {
+            position: absolute; bottom: 7%; width: 100%;
+            display: flex; justify-content: space-around; padding: 0 40px; z-index: 5;
+        }
+        .tool-icon {
+            width: 55px; height: 55px; background: rgba(0,0,0,0.3); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-size: 1.4rem; backdrop-filter: blur(5px);
+            cursor: pointer; transition: transform 0.1s ease;
+        }
+        .tool-icon:active { transform: scale(0.92); }
+
+        .iphone-bar {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            width: 135px; height: 5px; background: white; border-radius: 10px; z-index: 100; cursor: pointer;
+        }
+
+        /* ===== SWIPE AREAS ===== */
+        .swipe-hitbox {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; z-index: 100;
+        }
+
+        /* ===== CAMERA SYSTEM (From original code) ===== */
+        #flash-overlay { position: absolute; inset: 0; z-index: 100; background: rgba(255, 255, 255, 0.9); backdrop-filter: brightness(2.5) contrast(1.2) blur(3px); opacity: 0; pointer-events: none; transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1); }
+        #flash-overlay.flash-active { opacity: 1; transition: opacity 0.05s ease-out; }
+        #flash-line { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255,255,255,0.9); z-index: 101; opacity: 0; pointer-events: none; }
+        #flashlight-screen-overlay { position: absolute; inset: 0; z-index: 105; background: #ffffff; opacity: 0; pointer-events: none; }
+        .trigger-flashlight { animation: flashScreenAnim 1s ease forwards; }
+        @keyframes flashScreenAnim { 0% { opacity: 0; } 10% { opacity: 1; } 50% { opacity: 1; } 100% { opacity: 0; } }
+
+        #camera-layer {
+            position: absolute; inset: 0; z-index: 80;
+            background: #000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease; transform-origin: center bottom;
+        }
+        #camera-layer.active { opacity: 1; pointer-events: all; }
+        #viewfinder { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 200px); background: #000; overflow: hidden; }
+        #cam-grid { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+        .grid-h, .grid-v { position: absolute; background: rgba(255,255,255,0.25); }
+        .grid-h { width: 100%; height: 1px; } .grid-v { height: 100%; width: 1px; }
+        .grid-h:nth-child(1) { top: 33.33%; } .grid-h:nth-child(2) { top: 66.66%; }
+        .grid-v:nth-child(3) { left: 33.33%; } .grid-v:nth-child(4) { left: 66.66%; }
+        .corner { position: absolute; width: 22px; height: 22px; z-index: 3; }
+        .corner::before, .corner::after { content: ''; position: absolute; background: white; }
+        .corner.tl { top: 12px; left: 12px; } .corner.tl::before { top: 0; left: 0; width: 100%; height: 2px; } .corner.tl::after { top: 0; left: 0; width: 2px; height: 100%; }
+        .corner.tr { top: 12px; right: 12px; } .corner.tr::before { top: 0; right: 0; width: 100%; height: 2px; } .corner.tr::after { top: 0; right: 0; width: 2px; height: 100%; }
+        .corner.bl { bottom: 12px; left: 12px; } .corner.bl::before { bottom: 0; left: 0; width: 100%; height: 2px; } .corner.bl::after { bottom: 0; left: 0; width: 2px; height: 100%; }
+        .corner.br { bottom: 12px; right: 12px; } .corner.br::before { bottom: 0; right: 0; width: 100%; height: 2px; } .corner.br::after { bottom: 0; right: 0; width: 2px; height: 100%; }
+
+        #cam-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+        #cam-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0; filter: blur(15px); transform: scale(1.1); transition: opacity 1.2s cubic-bezier(0.25, 1, 0.5, 1), filter 1.2s cubic-bezier(0.25, 1, 0.5, 1), transform 1.2s cubic-bezier(0.25, 1, 0.5, 1); }
+        #cam-image.revealed { opacity: 1; filter: blur(0px); transform: scale(1.0); }
+
+        #cam-bottom { position: absolute; bottom: 0; left: 0; width: 100%; height: 200px; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+        #cam-modes { display: flex; gap: 24px; margin-bottom: 6px; }
+        .cam-mode { font-size: 0.72rem; font-weight: 600; letter-spacing: 1px; color: rgba(255,255,255,0.5); text-transform: uppercase; }
+        .cam-mode.active { color: #FFD60A; }
+        #cam-zoom { display: flex; gap: 16px; align-items: center; margin-bottom: 4px; }
+        .zoom-btn { font-size: 0.85rem; color: rgba(255,255,255,0.6); font-weight: 500; }
+        .zoom-btn.active { color: #FFD60A; }
+        #cam-controls { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 30px; }
+        #gallery-thumb { width: 56px; height: 56px; border-radius: 10px; border: 2px solid white; background-size: cover; background-position: center; background-color: #222; overflow: hidden; cursor: pointer; transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+        #shutter-btn { width: 78px; height: 78px; border-radius: 50%; background: white; border: 4px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 3px rgba(255,255,255,0.25); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s ease; position: relative; overflow: hidden; }
+        #shutter-btn:active { transform: scale(0.92); }
+        #shutter-btn.spinning::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 4px solid transparent; border-top-color: rgba(0,0,0,0.25); animation: spin 0.9s linear infinite; }
+        #switch-cam-btn { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.3rem; cursor: pointer; transition: transform 0.4s ease; }
+        #switch-cam-btn:active { transform: rotate(180deg); }
+
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes flickerLine { 0% { opacity: 0; } 20% { opacity: 1; } 40% { opacity: 0.3; } 60% { opacity: 0.8; } 80% { opacity: 0.2; } 100% { opacity: 0; } }
+        
+            /* ===== INSTAGRAM APP SPECIFIC CSS ===== */
+    /* ปิดกรอบไฮไลท์สีฟ้าตอนกดบนมือถือ */
+    #ig-layer * {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #ig-layer {
+        background: #000;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Header - แก้เอา absolute ออก เพื่อไม่ให้ลอยทับเนื้อหา และตั้งให้อยู่คงที่ */
+    .ig-header {
+        width: 100%; 
+        padding: 40px 15px 10px 15px; /* padding-top เผื่อรอยบากมือถือ */
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        z-index: 10;
+        flex-shrink: 0;
+        background: #000;
+    }
+    .ig-logo { font-size: 1.4rem; font-weight: 600; font-family: 'SF Pro Display', sans-serif; letter-spacing: -0.5px;}
+    .ig-icon { font-size: 1.4rem; cursor: pointer; }
+
+    /* Smooth Scroll for the whole feed */
+    .ig-main-scroll {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        /* เอา padding-top ออกเพราะ header จัดเรียงแบบปกติแล้ว */
+    }
+    .ig-main-scroll::-webkit-scrollbar { display: none; }
+
+    /* Stories */
+    .ig-stories {
+        display: flex; gap: 15px; padding: 10px 15px;
+        border-bottom: 0.5px solid #262626;
+        overflow-x: auto; scroll-behavior: smooth;
+    }
+    .ig-stories::-webkit-scrollbar { display: none; }
+    
+    .ig-story-item {
+        display: flex; flex-direction: column; align-items: center; gap: 5px; width: 65px;
+    }
+    .ig-story-ring {
+        width: 65px; height: 65px; border-radius: 50%;
+        padding: 2.5px; position: relative; cursor: pointer;
+    }
+    .ig-story-ring.active {
+        background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    }
+    .ig-story-ring.my-story { background: transparent; }
+    .ig-story-ring img {
+        width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+        border: 2px solid #000;
+    }
+    .ig-add-story-btn {
+        position: absolute; bottom: 0; right: 0;
+        width: 20px; height: 20px; background: #0095f6; border: 2px solid #000;
+        border-radius: 50%; display: flex; justify-content: center; align-items: center;
+        color: white; font-size: 0.6rem;
+    }
+    .ig-story-name { font-size: 0.7rem; font-weight: 400; color: #dbdbdb; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+
+    /* Feed Posts */
+    .ig-post { margin-bottom: 15px; border-bottom: 0.5px solid #262626; padding-bottom: 10px;}
+    .ig-post-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 12px;
+    }
+    .ig-post-user { display: flex; align-items: center; gap: 10px; }
+    .ig-post-user img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+    .ig-username { font-weight: 600; font-size: 0.85rem; }
+    .ig-more-icon { font-size: 1rem; color: #fff; cursor: pointer;}
+
+    /* Image & Double Tap */
+    .ig-post-image-container { position: relative; width: 100%; display: flex; justify-content: center;}
+    .ig-post-img { width: 100%; max-height: 500px; object-fit: contain; cursor: pointer;}
+    .ig-big-heart {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+        color: #ff3040; font-size: 5rem; opacity: 0; text-shadow: 0 0 20px rgba(0,0,0,0.3);
+        pointer-events: none; z-index: 5;
+    }
+    .ig-big-heart.pop { animation: heartPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    @keyframes heartPop {
+        0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+        20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+        40% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    }
+
+    /* Actions */
+    .ig-post-actions {
+        display: flex; justify-content: space-between; padding: 12px 15px 8px;
+    }
+    .ig-action-left { display: flex; gap: 18px; }
+    .ig-post-actions i { font-size: 1.4rem; cursor: pointer; transition: transform 0.1s; }
+    .ig-post-actions i:active { transform: scale(0.9); opacity: 0.7;}
+    .ig-btn-like.liked { color: #ff3040; font-weight: 900; animation: likePop 0.3s ease; }
+    @keyframes likePop { 0% {transform: scale(1);} 50% {transform: scale(1.2);} 100% {transform: scale(1);} }
+
+    /* Post Details */
+    .ig-post-content { padding: 0 15px; font-size: 0.85rem; line-height: 1.4; }
+    .ig-likes { font-weight: 600; margin-bottom: 4px; }
+    .ig-caption { margin-bottom: 4px; }
+    .ig-view-comments { color: #a8a8a8; margin-bottom: 4px; font-weight: 400; cursor: pointer;}
+    .ig-time { color: #a8a8a8; font-size: 0.7rem; }
+
+    /* Bottom Nav */
+    .ig-bottom-nav {
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 60px;
+        background: #000; border-top: 0.5px solid #262626;
+        display: flex; justify-content: space-around; align-items: center;
+        padding-bottom: 15px; z-index: 20;
+    }
+    .ig-bottom-nav i { font-size: 1.5rem; color: #fff; cursor: pointer; }
+    .ig-bottom-nav .active { color: #fff; }
+    .ig-nav-profile {
+        width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+        border: 2px solid transparent; cursor: pointer;
+    }
+    .ig-nav-profile.active { border-color: #fff; }
+
+    /* ===== BOTTOM SHEETS (Comment & Share) ===== */
+    .ig-sheet-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.6); z-index: 99;
+        opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+    }
+    .ig-sheet-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .ig-bottom-sheet {
+        position: absolute; bottom: 0; left: 0; width: 100%;
+        background: #1a1a1a; border-radius: 15px 15px 0 0; z-index: 100;
+        display: flex; flex-direction: column;
+        transform: translateY(100%); 
+        transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); /* เลื่อนช้าๆ นุ่มๆ */
+    }
+    .ig-bottom-sheet.active { transform: translateY(0); }
+
+    .ig-sheet-header {
+        display: flex; flex-direction: column; align-items: center; padding: 10px 0;
+        border-bottom: 0.5px solid #333; cursor: grab;
+    }
+    .ig-sheet-handle { width: 40px; height: 4px; background: #555; border-radius: 2px; margin-bottom: 15px; }
+    .ig-sheet-title { font-weight: 600; font-size: 0.95rem; }
+
+    /* Comment Specific */
+    .ig-comment-list { flex: 1; overflow-y: auto; padding: 15px; }
+    .ig-comment-list::-webkit-scrollbar { display: none; }
+    .ig-comment-item { display: flex; gap: 12px; margin-bottom: 20px; align-items: flex-start;}
+    .ig-comment-avatar { width: 35px; height: 35px; flex-shrink: 0; }
+    .ig-comment-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .ig-default-avatar {
+        width: 100%; height: 100%; border-radius: 50%; background: #444;
+        display: flex; justify-content: center; align-items: center;
+        font-weight: 600; font-size: 1rem; color: #fff; text-transform: uppercase;
+    }
+    .ig-comment-content { flex: 1; font-size: 0.85rem; line-height: 1.4; }
+    .ig-comment-name { font-weight: 600; margin-right: 5px; color: #fff; }
+    .ig-comment-text { color: #e0e0e0; }
+    .ig-comment-meta { margin-top: 5px; display: flex; gap: 15px; color: #888; font-size: 0.75rem; font-weight: 500;}
+    .ig-comment-reply { cursor: pointer; }
+    .ig-comment-heart { font-size: 0.8rem; color: #888; cursor: pointer; padding-top: 5px;}
+    .ig-comment-heart.liked { color: #ff3040; animation: likePop 0.3s ease; }
+
+    .ig-comment-input-area {
+        display: flex; align-items: center; padding: 12px 15px 25px 15px;
+        border-top: 0.5px solid #333; gap: 10px; background: #1a1a1a;
+    }
+    .ig-comment-input-area img { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; }
+    .ig-comment-input-area input {
+        flex: 1; background: transparent; border: none; color: #fff; outline: none;
+        font-size: 0.9rem; padding: 5px 0;
+    }
+    .ig-comment-input-area input::placeholder { color: #888; }
+    .ig-post-btn { color: #0095f6; font-weight: 600; font-size: 0.9rem; cursor: pointer; opacity: 0.5; }
+
+    /* Share Specific */
+    .ig-share-users {
+        display: flex; gap: 20px; padding: 20px 15px; overflow-x: auto;
+        border-bottom: 0.5px solid #333;
+    }
+    .ig-share-users::-webkit-scrollbar { display: none; }
+    .ig-share-user { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 60px; }
+    .ig-share-user img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
+    .ig-share-user span { font-size: 0.75rem; color: #dbdbdb; }
+    
+    .ig-share-actions { padding: 10px 0; }
+    .ig-share-action-item {
+        display: flex; align-items: center; gap: 15px; padding: 12px 15px; cursor: pointer;
+    }
+    .ig-share-action-item:active { background: #262626; }
+    .ig-action-icon {
+        width: 45px; height: 45px; border-radius: 50%; background: #333;
+        display: flex; justify-content: center; align-items: center; font-size: 1.2rem;
+    }
+    .ig-share-action-item span { font-weight: 600; font-size: 0.95rem; }
+</style>
+</head>
+<body>
+
+<div id="device">
+
+    <div id="home-layer" class="screen">
+        <img id="home-bg" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/file_00000000523871fa97289deca0b27518.png" alt="Home Screen">
+        
+        <div class="custom-status-bar">
+            <div class="left">
+                <span id="home-time">12:55</span>
+                <i class="fas fa-star" style="font-size: 0.6rem;"></i>
+            </div>
+            <div class="right">
+                <i class="fas fa-signal" style="font-size: 0.75rem;"></i>
+                <i class="fas fa-wifi" style="font-size: 0.75rem;"></i>
+                <div class="custom-battery">
+                    <div class="custom-battery-fill"></div>
+                    <span class="battery-text">54</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="app-instagram" class="app-hitbox" style="top: 8%; left: 5%; width: 20%; height: 10%;"></div>
+        
+        <div class="iphone-bar"></div>
+    </div>
+
+    <div id="ig-layer" class="screen">  
+    <div class="ig-header">
+        <i class="fa-solid fa-plus ig-icon"></i>
+        <span class="ig-logo">Instagram</span>
+        <i class="fa-regular fa-heart ig-icon"></i>
+    </div>
+
+    <div class="ig-main-scroll">
+        <div class="ig-stories">
+            <div class="ig-story-item">
+                <div class="ig-story-ring my-story">
+                    <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Screenshot_2026-04-27-22-11-47-89_f56d448df78e8512261d4bfbcb3978c7.jpg">
+                    <div class="ig-add-story-btn"><i class="fa-solid fa-plus"></i></div>
+                </div>
+                <span class="ig-story-name">สตอรี่ของคุณ</span>
+            </div>
+            <div class="ig-story-item">
+                <div class="ig-story-ring active">
+                    <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg">
+                </div>
+                <span class="ig-story-name">Dan heng</span>
+            </div>
+            <div class="ig-story-item">
+                <div class="ig-story-ring active">
+                    <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/540e154b7cecb9dd668c831bc10dd61f.jpg">
+                </div>
+                <span class="ig-story-name">Himeko</span>
+            </div>
+            <div class="ig-story-item">
+                <div class="ig-story-ring active">
+                    <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/21b1e936132b798dae91fa95e724ea2f.jpg">
+                </div>
+                <span class="ig-story-name">Welt</span>
+            </div>
+            <div class="ig-story-item">
+                <div class="ig-story-ring active">
+                    <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/0eaf8a7d7577e31c6b09b69211cc4272%20(1).jpg">
+                </div>
+                <span class="ig-story-name">March 7th</span>
+            </div>
+        </div>
+
+        <div class="ig-feed">
+            <div class="ig-post">
+                <div class="ig-post-header">
+                    <div class="ig-post-user">
+                        <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg">
+                        <span class="ig-username">Dan heng</span>
+                    </div>
+                    <i class="fa-solid fa-ellipsis ig-more-icon"></i>
+                </div>
+                <div class="ig-post-image-container">
+                    <img class="ig-post-img" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/VIP_Temp_File_image_repair_1777290912571.jpg">
+                    <i class="fa-solid fa-heart ig-big-heart"></i>
+                </div>
+                <div class="ig-post-actions">
+                    <div class="ig-action-left">
+                        <i class="fa-regular fa-heart ig-btn-like"></i>
+                        <i class="fa-regular fa-comment ig-btn-comment"></i>
+                        <i class="fa-regular fa-paper-plane ig-btn-share"></i>
+                    </div>
+                    <div class="ig-action-right">
+                        <i class="fa-regular fa-bookmark ig-btn-bookmark"></i>
+                    </div>
+                </div>
+                <div class="ig-post-content">
+                    <div class="ig-likes"><span class="like-count">9,342</span> likes</div>
+                    <div class="ig-caption">
+                        <span class="ig-username">Dan heng</span> บางครั้งการหยุดยืนมองแสงสุดท้ายของวัน... ก็ทำให้ใจสงบขึ้นอย่างไม่น่าเชื่อ
+                    </div>
+                    <div class="ig-view-comments">ดูความคิดเห็นทั้งหมด 12 รายการ</div>
+                    <div class="ig-time">2 ชั่วโมงที่ผ่านมา</div>
+                </div>
+            </div>
+
+            <div class="ig-post">
+                <div class="ig-post-header">
+                    <div class="ig-post-user">
+                        <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg">
+                        <span class="ig-username">Dan heng</span>
+                    </div>
+                    <i class="fa-solid fa-ellipsis ig-more-icon"></i>
+                </div>
+                <div class="ig-post-image-container">
+                    <img class="ig-post-img" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/MEITU_20260427_184214067.jpg">
+                    <i class="fa-solid fa-heart ig-big-heart"></i>
+                </div>
+                <div class="ig-post-actions">
+                    <div class="ig-action-left">
+                        <i class="fa-regular fa-heart ig-btn-like"></i>
+                        <i class="fa-regular fa-comment ig-btn-comment"></i>
+                        <i class="fa-regular fa-paper-plane ig-btn-share"></i>
+                    </div>
+                    <div class="ig-action-right">
+                        <i class="fa-regular fa-bookmark ig-btn-bookmark"></i>
+                    </div>
+                </div>
+                <div class="ig-post-content">
+                    <div class="ig-likes"><span class="like-count">15,204</span> likes</div>
+                    <div class="ig-caption">
+                        <span class="ig-username">Dan heng</span> 🎄❄️
+                    </div>
+                    <div class="ig-view-comments">ดูความคิดเห็นทั้งหมด 12 รายการ</div>
+                    <div class="ig-time">5 ชั่วโมงที่ผ่านมา</div>
+                </div>
+            </div>
+
+            <div class="ig-post">
+                <div class="ig-post-header">
+                    <div class="ig-post-user">
+                        <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg">
+                        <span class="ig-username">Dan heng</span>
+                    </div>
+                    <i class="fa-solid fa-ellipsis ig-more-icon"></i>
+                </div>
+                <div class="ig-post-image-container">
+                    <img class="ig-post-img" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/MEITU_20260427_182240132.jpg">
+                    <i class="fa-solid fa-heart ig-big-heart"></i>
+                </div>
+                <div class="ig-post-actions">
+                    <div class="ig-action-left">
+                        <i class="fa-regular fa-heart ig-btn-like"></i>
+                        <i class="fa-regular fa-comment ig-btn-comment"></i>
+                        <i class="fa-regular fa-paper-plane ig-btn-share"></i>
+                    </div>
+                    <div class="ig-action-right">
+                        <i class="fa-regular fa-bookmark ig-btn-bookmark"></i>
+                    </div>
+                </div>
+                <div class="ig-post-content">
+                    <div class="ig-likes"><span class="like-count">11,058</span> likes</div>
+                    <div class="ig-caption">
+                        <span class="ig-username">Dan heng</span> 🍰☕
+                    </div>
+                    <div class="ig-view-comments">ดูความคิดเห็นทั้งหมด 12 รายการ</div>
+                    <div class="ig-time">8 ชั่วโมงที่ผ่านมา</div>
+                </div>
+            </div>
+            
+            <div style="height: 100px;"></div> </div>
+    </div>
+
+    <div class="ig-reels-container" id="ig-reels-container" style="display: none;">
+        
+        <div class="reels-item">
+            <video class="reels-video" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/VID_20260427194611.mp4" loop muted playsinline></video>
+            <audio class="reels-audio" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Convert_audio_1777354343084.mp3" loop preload="auto"></audio>
+            
+            <div class="reels-overlay">
+                <div class="reels-top-bar">Reels <i class="fa-solid fa-camera"></i></div>
+                
+                <div class="reels-right-actions">
+                    <div class="reels-btn btn-like"><i class="fa-regular fa-heart"></i><span>47.2K</span></div>
+                    <div class="reels-btn btn-comment"><i class="fa-regular fa-comment"></i><span>1,234</span></div>
+                    <div class="reels-btn btn-repost"><i class="fa-solid fa-retweet"></i><span>892</span></div>
+                    <div class="reels-btn btn-share"><i class="fa-regular fa-paper-plane"></i><span>แชร์</span></div>
+                    <div class="reels-btn btn-bookmark"><i class="fa-regular fa-bookmark"></i><span>บันทึก</span></div>
+                    <div class="reels-btn"><i class="fa-solid fa-ellipsis"></i></div>
+                </div>
+
+                <div class="reels-bottom-info">
+                    <div class="reels-user-row">
+                        <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg" alt="Dan Heng">
+                        <span class="username">Dan Heng</span>
+                        <span class="follow-btn">ติดตาม</span>
+                    </div>
+                    <div class="reels-caption">ดูได้แต่อย่าหลงนะ... 🐉✨ #DanHeng #HSR #Reels</div>
+                    <div class="reels-music"><i class="fa-solid fa-music"></i> <span>Original Audio - Dan Heng</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="reels-item">
+            <video class="reels-video" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/VID_20260427195821.mp4" loop muted playsinline></video>
+            <audio class="reels-audio" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Convert_audio_1777354386039.mp3" loop preload="auto"></audio>
+            
+            <div class="reels-overlay">
+                <div class="reels-top-bar">Reels <i class="fa-solid fa-camera"></i></div>
+                
+                <div class="reels-right-actions">
+                    <div class="reels-btn btn-like"><i class="fa-regular fa-heart"></i><span>89.5K</span></div>
+                    <div class="reels-btn btn-comment"><i class="fa-regular fa-comment"></i><span>2,450</span></div>
+                    <div class="reels-btn btn-repost"><i class="fa-solid fa-retweet"></i><span>1.2K</span></div>
+                    <div class="reels-btn btn-share"><i class="fa-regular fa-paper-plane"></i><span>แชร์</span></div>
+                    <div class="reels-btn btn-bookmark"><i class="fa-regular fa-bookmark"></i><span>บันทึก</span></div>
+                    <div class="reels-btn"><i class="fa-solid fa-ellipsis"></i></div>
+                </div>
+
+                <div class="reels-bottom-info">
+                    <div class="reels-user-row">
+                        <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg" alt="Dan Heng">
+                        <span class="username">Dan Heng</span>
+                        <span class="follow-btn">ติดตาม</span>
+                    </div>
+                    <div class="reels-caption">พลังแห่ง Imbibitor Lunae... 🌊 #ImbibitorLunae #HSR</div>
+                    <div class="reels-music"><i class="fa-solid fa-music"></i> <span>Phonk Beat - HSR</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="ig-bottom-nav">
+        <i class="fa-solid fa-house active"></i>
+        <i class="fa-brands fa-youtube"></i> <i class="fa-regular fa-paper-plane"></i>
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <img class="ig-nav-profile" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Screenshot_2026-04-27-22-11-47-89_f56d448df78e8512261d4bfbcb3978c7.jpg">
+    </div>
+
+    <div class="iphone-bar" id="ig-home-bar" style="bottom: 8px; background: rgba(255,255,255,1); z-index: 100;"></div>
+        <div class="ig-sheet-overlay" id="ig-sheet-overlay"></div>
+
+    <div class="ig-bottom-sheet" id="ig-comment-sheet" style="height: 90vh;">
+        <div class="ig-sheet-header">
+            <div class="ig-sheet-handle"></div>
+            <div class="ig-sheet-title">ความคิดเห็น</div>
+        </div>
+        <div class="ig-comment-list" id="ig-comment-list-container">
+            </div>
+        <div class="ig-comment-input-area">
+            <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Screenshot_2026-04-27-22-11-47-89_f56d448df78e8512261d4bfbcb3978c7.jpg">
+            <input type="text" placeholder="เพิ่มความคิดเห็น..." readonly>
+            <span class="ig-post-btn">โพสต์</span>
+        </div>
+    </div>
+
+    <div class="ig-bottom-sheet" id="ig-share-sheet" style="height: auto; padding-bottom: 30px;">
+        <div class="ig-sheet-header">
+            <div class="ig-sheet-handle"></div>
+            <div class="ig-sheet-title" style="margin-bottom: 10px;">แชร์</div>
+        </div>
+        <div class="ig-share-users">
+            <div class="ig-share-user">
+                <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/f6e131b6bd9231de44ac2a8142385ee7%20(2).jpg">
+                <span>Dan heng</span>
+            </div>
+            <div class="ig-share-user">
+                <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/540e154b7cecb9dd668c831bc10dd61f.jpg">
+                <span>Himeko</span>
+            </div>
+            <div class="ig-share-user">
+                <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/21b1e936132b798dae91fa95e724ea2f.jpg">
+                <span>Welt</span>
+            </div>
+            <div class="ig-share-user">
+                <img src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/0eaf8a7d7577e31c6b09b69211cc4272%20(1).jpg">
+                <span>March 7th</span>
+            </div>
+        </div>
+        <div class="ig-share-actions">
+            <div class="ig-share-action-item">
+                <div class="ig-action-icon"><i class="fa-solid fa-link"></i></div>
+                <span>คัดลอกลิงก์</span>
+            </div>
+            <div class="ig-share-action-item">
+                <div class="ig-action-icon"><i class="fa-solid fa-share"></i></div>
+                <span>แชร์ไปที่...</span>
+            </div>
+            <div class="ig-share-action-item">
+                <div class="ig-action-icon"><i class="fa-brands fa-facebook"></i></div>
+                <span>แชร์ไปยัง Facebook</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <div id="ls-layer" class="screen">
+        <img id="bg-video" src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/32fd92235fdddebf4b5c7736064743d6%20(1).jpg">
+
+        <div class="status-bar">
+            <span>AIS</span>
+            <span>5G <i class="fas fa-signal"></i> <i class="fas fa-battery-half"></i> <span id="bat-level">45%</span></span>
+        </div>
+
+        <div class="clock-area">
+            <div class="date-display" id="real-date">Mon 20 Apr</div>
+            <div class="clock-display" id="real-time">18:20</div>
+        </div>
+
+        <div id="spotify-widget">
+            <div class="widget-header">
+                <span><i class="fab fa-spotify" style="color: #1ed760;"></i> Spotify</span>
+                <span><i class="fas fa-headphones"></i> Mokax &nbsp;<i class="fas fa-chevron-down"></i></span>
+            </div>
+            <div class="widget-body">
+                <div class="album-cover" id="album-cover"></div>
+                <div class="track-info-container">
+                    <div class="track-title" id="track-title">About Last Night</div>
+                    <div class="track-artist">Yel</div>
+                </div>
+            </div>
+            <div class="controls">
+                <i class="fas fa-step-backward control-btn disabled" id="prev-btn"></i>
+                <i class="fas fa-play control-btn" id="play-pause-btn"></i>
+                <i class="fas fa-step-forward control-btn" id="next-btn"></i>
+            </div>
+        </div>
+
+        <div class="bottom-tools">
+            <div class="tool-icon" id="flash-btn"><i class="fas fa-bolt"></i></div>
+            <div class="tool-icon" id="camera-btn"><i class="fas fa-camera"></i></div>
+        </div>
+        
+        <div class="swipe-hitbox" id="ls-swipe-up"></div>
+        <div class="iphone-bar"></div>
+    </div>
+
+    <div id="flash-overlay"></div>
+    <div id="flash-line"></div>
+    <div id="flashlight-screen-overlay"></div>
+
+    <div id="camera-layer">
+        <div id="viewfinder">
+            <video id="cam-bg-video" autoplay muted loop playsinline>
+                <source src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/VID_20260421005221.mp4" type="video/mp4">
+            </video>
+            <img id="cam-image" src="" alt="Camera capture">
+            
+            <div id="cam-grid">
+                <div class="grid-h"></div><div class="grid-h"></div>
+                <div class="grid-v"></div><div class="grid-v"></div>
+            </div>
+
+            <div class="corner tl"></div><div class="corner tr"></div>
+            <div class="corner bl"></div><div class="corner br"></div>
+        </div>
+
+        <div id="cam-bottom">
+            <div id="cam-modes">
+                <span class="cam-mode">CINEMATIC</span><span class="cam-mode">VIDEO</span>
+                <span class="cam-mode active">PHOTO</span><span class="cam-mode">PORTRAIT</span><span class="cam-mode">PANO</span>
+            </div>
+            <div id="cam-zoom">
+                <span class="zoom-btn">0.5</span><span class="zoom-btn active">1×</span>
+            </div>
+            <div id="cam-controls">
+                <div id="gallery-thumb"></div>
+                <div id="shutter-btn"></div>
+                <div id="switch-cam-btn"><i class="fas fa-rotate"></i></div>
+            </div>
+        </div>
+        <div class="swipe-hitbox" id="cam-swipe-up"></div>
+        <div class="iphone-bar"></div>
+    </div>
+
+    <audio id="audio-player"></audio>
+    <audio id="shutter-audio" preload="auto">
+        <source src="https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Convert_audio_1776701744400.mp3" type="audio/mpeg">
+    </audio>
+</div>
+
+<script>
+    let currentScreen = 'lock';
+
+    // ===== CLOCK & BATTERY =====
+    function updateClock() {
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        document.getElementById('real-time').innerText = timeStr;
+        document.getElementById('home-time').innerText = timeStr;
+        
+        const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        document.getElementById('real-date').innerText = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    if ('getBattery' in navigator) {
+        navigator.getBattery().then(bat => {
+            const upd = () => {
+                const level = Math.floor(bat.level * 100);
+                document.getElementById('bat-level').innerText = level + '%';
+                document.querySelector('.battery-text').innerText = level;
+                document.querySelector('.custom-battery-fill').style.width = level + '%';
+            };
+            upd(); bat.addEventListener('levelchange', upd);
+        });
+    }
+    
+    // ===== SWIPE UP TO UNLOCK (LOCK SCREEN -> HOME) =====
+    const lsSwipeArea = document.getElementById('ls-swipe-up');
+    const lsLayer = document.getElementById('ls-layer');
+    const homeLayer = document.getElementById('home-layer');
+    let lsTouchStartY = 0;
+
+    lsSwipeArea.addEventListener('touchstart', e => {
+        lsTouchStartY = e.changedTouches[0].screenY;
+    }, {passive: true});
+
+    lsSwipeArea.addEventListener('touchmove', e => {
+        let currentY = e.changedTouches[0].screenY;
+        let diffY = lsTouchStartY - currentY;
+        
+        if (diffY > 0) {
+            lsLayer.style.transform = `translateY(-${diffY * 0.5}px)`;
+            lsLayer.style.opacity = Math.max(0, 1 - (diffY / 500));
+        }
+    }, {passive: true});
+
+    lsSwipeArea.addEventListener('touchend', e => {
+        let diffY = lsTouchStartY - e.changedTouches[0].screenY;
+
+        if (diffY > 80) { 
+            // Unlock success
+            lsLayer.style.transition = 'all 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            lsLayer.style.transform = 'translateY(-100vh)';
+            lsLayer.style.opacity = '0';
+            
+            homeLayer.classList.add('active');
+            currentScreen = 'home';
+            
+            setTimeout(() => {
+                lsLayer.style.pointerEvents = 'none';
+            }, 500);
+        } else {
+            // Bounce back
+            lsLayer.style.transition = 'all 0.3s ease';
+            lsLayer.style.transform = 'translateY(0)';
+            lsLayer.style.opacity = '1';
+            setTimeout(() => { lsLayer.style.transition = ''; }, 300);
+        }
+    }, {passive: true});
+
+    // ===== APP OPEN/CLOSE (INSTAGRAM) =====
+    const igHitbox = document.getElementById('app-instagram');
+    const igLayer = document.getElementById('ig-layer');
+    const igHomeBar = document.getElementById('ig-home-bar');
+
+    igHitbox.addEventListener('click', () => {
+        igLayer.classList.add('active');
+        currentScreen = 'instagram';
+    });
+
+    igHomeBar.addEventListener('click', () => {
+        igLayer.classList.remove('active');
+        currentScreen = 'home';
+    });
+
+    // ===== MUSIC =====
+    const playPauseBtn = document.getElementById('play-pause-btn');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const trackTitle = document.getElementById('track-title');
+    const albumCover = document.getElementById('album-cover');
+    const audioPlayer = document.getElementById('audio-player');
+    
+    const tracks = [
+        { title: "About Last Night", src: "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Convert_audio_1776689497737.mp3", cover: "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Screenshot_2026-04-20-15-50-52-66_0438eb925998df20b3482ec25499d226.jpg" },
+        { title: "Tonight Again", src: "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Convert_audio_1776689919797.mp3", cover: "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/Screenshot_2026-04-20-15-50-52-66_0438eb925998df20b3482ec25499d226.jpg" }
+    ];
+    let currentTrackIndex = 0;
+    let isPlaying = false;
+
+    function controlsUpdate() {
+        trackTitle.innerText = tracks[currentTrackIndex].title;
+        albumCover.style.backgroundImage = `url('${tracks[currentTrackIndex].cover}')`;
+        prevBtn.className = currentTrackIndex === 0 ? "fas fa-step-backward control-btn disabled" : "fas fa-step-backward control-btn";
+        nextBtn.className = currentTrackIndex === tracks.length - 1 ? "fas fa-step-forward control-btn disabled" : "fas fa-step-forward control-btn";
+    }
+
+    function playbackToggle() {
+        if (!isPlaying) {
+            if (audioPlayer.src !== tracks[currentTrackIndex].src) {
+                audioPlayer.src = tracks[currentTrackIndex].src;
+            }
+            audioPlayer.play().catch(() => {});
+            playPauseBtn.className = "fas fa-pause control-btn"; 
+            isPlaying = true;
+        } else {
+            audioPlayer.pause();
+            playPauseBtn.className = "fas fa-play control-btn"; 
+            isPlaying = false;
+        }
+    }
+
+    audioPlayer.onended = () => { playPauseBtn.className = "fas fa-play control-btn"; isPlaying = false; };
+    playPauseBtn.onclick = playbackToggle;
+    
+    nextBtn.onclick = () => { 
+        if(currentTrackIndex < tracks.length - 1) { 
+            currentTrackIndex++; isPlaying = false; 
+            audioPlayer.src = tracks[currentTrackIndex].src;
+            playbackToggle(); controlsUpdate(); 
+        } 
+    };
+    
+    prevBtn.onclick = () => { 
+        if(currentTrackIndex > 0) { 
+            currentTrackIndex--; isPlaying = false; 
+            audioPlayer.src = tracks[currentTrackIndex].src;
+            playbackToggle(); controlsUpdate(); 
+        } 
+    };
+    controlsUpdate();
+
+    // ===== FLASHLIGHT =====
+    document.getElementById('flash-btn').addEventListener('click', function() {
+        const flashOverlay = document.getElementById('flashlight-screen-overlay');
+        flashOverlay.classList.remove('trigger-flashlight');
+        void flashOverlay.offsetWidth; 
+        flashOverlay.classList.add('trigger-flashlight');
+    });
+
+    // ===== CAMERA SYSTEM =====
+    const shutterAudio = document.getElementById('shutter-audio');
+    const cameraImages = [
+        'https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/FB_IMG_1776627648389.jpg', 
+        'https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/IMG_20260424_151410.jpg'
+    ];
+    let camImageIndex = 0;
+
+    function playShutter() { shutterAudio.currentTime = 0; shutterAudio.play().catch(() => {}); }
+
+    function doFlash(callback) {
+        const overlay = document.getElementById('flash-overlay');
+        const line = document.getElementById('flash-line');
+        overlay.classList.add('flash-active');
+        line.style.animation = 'flickerLine 0.5s ease'; line.style.opacity = '1';
+        setTimeout(() => playShutter(), 50);
+        setTimeout(() => {
+            overlay.classList.remove('flash-active');
+            line.style.animation = ''; line.style.opacity = '0';
+            setTimeout(() => { if (callback) callback(); }, 200);
+        }, 100); 
+    }
+
+    function revealCamImage(src, onComplete) {
+        const img = document.getElementById('cam-image');
+        img.style.transition = 'none'; img.style.opacity = ''; 
+        img.classList.remove('revealed'); img.src = src;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                img.style.transition = 'opacity 1.2s cubic-bezier(0.25, 1, 0.5, 1), filter 1.2s cubic-bezier(0.25, 1, 0.5, 1), transform 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
+                img.classList.add('revealed');
+                setTimeout(() => { if (onComplete) onComplete(src); }, 2000); 
+            });
+        });
+    }
+
+    function animateToGallery(src) {
+        const thumb = document.getElementById('gallery-thumb');
+        const img = document.getElementById('cam-image');
+        const imgRect = document.getElementById('viewfinder').getBoundingClientRect();
+        const thumbRect = thumb.getBoundingClientRect();
+        const clone = document.createElement('div');
+        clone.style.cssText = `position: fixed; top: ${imgRect.top}px; left: ${imgRect.left}px; width: ${imgRect.width}px; height: ${imgRect.height}px; background: url('${src}') center/cover no-repeat; border-radius: 4px; z-index: 200; pointer-events: none; border: 2px solid white; transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);`;
+        document.body.appendChild(clone);
+        img.style.transition = 'opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1)'; img.style.opacity = '0';
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const scaleX = thumbRect.width / imgRect.width;
+                const scaleY = thumbRect.height / imgRect.height;
+                const tx = thumbRect.left - imgRect.left + (thumbRect.width - imgRect.width * scaleX) / 2;
+                const ty = thumbRect.top - imgRect.top + (thumbRect.height - imgRect.height * scaleY) / 2;
+                clone.style.transform = `translate(${tx}px, ${ty}px) scale(${scaleX}, ${scaleY})`;
+                clone.style.borderRadius = '10px';
+                setTimeout(() => { thumb.style.backgroundImage = `url('${src}')`; clone.remove(); }, 800); 
+            });
+        });
+    }
+
+    function openCamera() {
+        const lsLayer = document.getElementById('ls-layer');
+        const camLayer = document.getElementById('camera-layer');
+        const shutter = document.getElementById('shutter-btn');
+        shutter.classList.add('spinning');
+        setTimeout(() => shutter.classList.remove('spinning'), 1000);
+        doFlash(() => {
+            lsLayer.style.opacity = '0'; lsLayer.style.pointerEvents = 'none';
+            camLayer.classList.add('active');
+            revealCamImage(cameraImages[camImageIndex], (src) => { animateToGallery(src); });
+        });
+    }
+
+    function capturePhoto() {
+        const shutter = document.getElementById('shutter-btn');
+        const img = document.getElementById('cam-image');
+        shutter.classList.add('spinning');
+        setTimeout(() => shutter.classList.remove('spinning'), 1000);
+        doFlash(() => {
+            img.style.transition = 'none'; img.style.opacity = '0';
+            camImageIndex = (camImageIndex + 1) % cameraImages.length;
+            revealCamImage(cameraImages[camImageIndex], (src) => { animateToGallery(src); });
+        });
+    }
+
+    function switchCamera() {
+        const btn = document.getElementById('switch-cam-btn');
+        btn.style.transform = 'rotate(180deg)';
+        setTimeout(() => btn.style.transform = '', 400);
+        camImageIndex = (camImageIndex + 1) % cameraImages.length;
+        const img = document.getElementById('cam-image');
+        img.style.transition = 'opacity 0.2s ease'; img.style.opacity = '0';
+        setTimeout(() => { revealCamImage(cameraImages[camImageIndex], () => {}); }, 200);
+    }
+
+    document.getElementById('camera-btn').addEventListener('click', openCamera);
+    document.getElementById('shutter-btn').addEventListener('click', capturePhoto);
+    document.getElementById('switch-cam-btn').addEventListener('click', switchCamera);
+    
+    // ===== SWIPE UP TO CLOSE CAMERA =====
+    const camSwipeArea = document.getElementById('cam-swipe-up');
+    let camTouchStartY = 0;
+
+    camSwipeArea.addEventListener('touchstart', e => {
+        camTouchStartY = e.changedTouches[0].screenY;
+    }, {passive: true});
+
+    camSwipeArea.addEventListener('touchmove', e => {
+        let currentY = e.changedTouches[0].screenY;
+        let diffY = camTouchStartY - currentY;
+        
+        if (diffY > 0) {
+            const camLayer = document.getElementById('camera-layer');
+            let scale = Math.max(0.85, 1 - (diffY / 1000));
+            let translateY = -diffY * 0.3;
+            camLayer.style.transform = `scale(${scale}) translateY(${translateY}px)`;
+            camLayer.style.borderRadius = `${Math.min(40, diffY * 0.5)}px`;
+        }
+    }, {passive: true});
+
+    camSwipeArea.addEventListener('touchend', e => {
+        let touchEndY = e.changedTouches[0].screenY;
+        let diffY = camTouchStartY - touchEndY;
+        const camLayer = document.getElementById('camera-layer');
+        const lsLayer = document.getElementById('ls-layer');
+
+        if (diffY > 60) { 
+            camLayer.style.transition = 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+            camLayer.style.transform = 'scale(0.8) translateY(-100px)';
+            camLayer.style.opacity = '0';
+            
+            lsLayer.style.opacity = '1';
+            lsLayer.style.pointerEvents = 'all';
+
+            setTimeout(() => {
+                camLayer.classList.remove('active');
+                camLayer.style.transition = 'opacity 0.3s ease'; 
+                camLayer.style.transform = ''; 
+                camLayer.style.opacity = ''; 
+                camLayer.style.borderRadius = '';
+            }, 400);
+
+        } else {
+            camLayer.style.transition = 'all 0.3s ease';
+            camLayer.style.transform = 'scale(1) translateY(0)';
+            camLayer.style.borderRadius = '0px';
+            setTimeout(() => { camLayer.style.transition = ''; }, 300);
+        }
+    }, {passive: true});
+    
+            // ===== INSTAGRAM INTERACTIONS =====
+
+    // ทำให้เปิดแอปช้าลงและนุ่มนวล (อัพเดทโค้ดเก่าเล็กน้อย)
+    igHitbox.addEventListener('click', () => {
+        igLayer.style.transition = "transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease"; // ทำให้ช้าลงตามบรีฟ
+        igLayer.classList.add('active');
+        currentScreen = 'instagram';
+    });
+
+    const posts = document.querySelectorAll('.ig-post');
+
+    posts.forEach(post => {
+        const imgContainer = post.querySelector('.ig-post-image-container');
+        const img = post.querySelector('.ig-post-img');
+        const bigHeart = post.querySelector('.ig-big-heart');
+        const btnLike = post.querySelector('.ig-btn-like');
+        const btnBookmark = post.querySelector('.ig-btn-bookmark');
+        const likeCountElement = post.querySelector('.like-count');
+        
+        let isLiked = false;
+        let isBookmarked = false;
+        let currentLikes = parseInt(likeCountElement.innerText.replace(/,/g, ''));
+
+        // Function อัพเดทตัวเลขไลก์
+        const updateLikeCount = () => {
+            likeCountElement.innerText = currentLikes.toLocaleString('en-US');
+        };
+
+        // 1. Double Tap รูปภาพ
+        let lastTap = 0;
+        imgContainer.addEventListener('touchend', (e) => {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            
+            if (tapLength < 300 && tapLength > 0) {
+                // Double Tap สำเร็จ
+                e.preventDefault();
+                
+                // แอนิเมชั่นหัวใจใหญ่
+                bigHeart.classList.remove('pop');
+                void bigHeart.offsetWidth; // Trigger reflow
+                bigHeart.classList.add('pop');
+
+                // เปลี่ยนสีปุ่มไลก์ด้านล่างถ้ายังไม่ได้กด
+                if (!isLiked) {
+                    isLiked = true;
+                    btnLike.classList.remove('fa-regular');
+                    btnLike.classList.add('fa-solid', 'liked');
+                    currentLikes++;
+                    updateLikeCount();
+                }
+            }
+            lastTap = currentTime;
+        });
+
+        // 2. กดปุ่มไอคอนไลก์ด้านล่าง
+        btnLike.addEventListener('click', () => {
+            isLiked = !isLiked;
+            if (isLiked) {
+                btnLike.classList.remove('fa-regular');
+                btnLike.classList.add('fa-solid', 'liked');
+                currentLikes++;
+            } else {
+                btnLike.classList.remove('fa-solid', 'liked');
+                btnLike.classList.add('fa-regular');
+                currentLikes--;
+            }
+            updateLikeCount();
+        });
+
+        // 3. กดปุ่ม Bookmark
+        btnBookmark.addEventListener('click', () => {
+            isBookmarked = !isBookmarked;
+            if (isBookmarked) {
+                btnBookmark.classList.remove('fa-regular');
+                btnBookmark.classList.add('fa-solid');
+            } else {
+                btnBookmark.classList.remove('fa-solid');
+                btnBookmark.classList.add('fa-regular');
+            }
+        });
+    });
+
+    // ===== PHASE 2: DATA & LOGIC =====
+    
+    const commentData = [
+        // โพสต์ที่ 1
+        [
+            { name: "March 7th", text: "🤩 ว้าว! วิวสวยมากเลย ตันเหิง! แต่ทำหน้าจริงจังไปหน่อยนะ~ ยิ้มบ้างสิ เดี๋ยวฉันถ่ายให้ใหม่เอง! 😉📸", time: "1h" },
+            { name: "Himeko", text: "ภาพนี้งดงามมาก ตันเหิง การได้หยุดพักและซึมซับบรรยากาศแบบนี้เป็นเรื่องที่ดี หวังว่าเธอจะได้พักใจอย่างแท้จริง", time: "2h" },
+            { name: "Welt", text: "ทิวทัศน์ที่งดงาม มักสะท้อนสภาวะภายในใจ... ดีแล้วที่เธอได้พบช่วงเวลาที่สงบเงียบแบบนี้", time: "3h" },
+            { name: "Jing Yuan", text: "ท่านผู้ดูแลหอจดหมายเหตุดูผ่อนคลายขึ้นเยอะเลยนะ ไว้ว่างๆ แวะมาจิบชาที่ Luofu บ้างล่ะ", time: "4h" },
+            { name: "Fu Xuan", text: "ข้าคำนวณแล้วว่าภาพนี้จะได้รับความสนใจไม่น้อย… และแน่นอน ผลลัพธ์ย่อมเป็นไปตามที่ข้าคาดการณ์", time: "4h" },
+            { name: "Tingyun", text: "ท่านดูสง่างามยิ่งนักท่ามกลางแสงอาทิตย์อัสดง หากมีโอกาส อยากเชื้อเชิญท่านมาเยือน Luofu อีกครั้งนะเจ้าคะ", time: "5h" },
+            { name: "Bailu", text: "นี่ๆ! อย่านั่งตากลมนานนักสิ เดี๋ยวไม่สบายเอานะ! มานี่ เดี๋ยวฉันดูให้!", time: "6h" },
+            { name: "Blade", text: "แสงสุดท้าย... ก็เหมือนกับความทรงจำที่กำลังจะเลือนหายไป", time: "7h" },
+            { name: "แฟนคลับตัวยง", text: "กรี๊ดดด สันกรามนั้น! ดาเมจแรงกว่าหอก Cloud-Piercer อีกค่ะ!", time: "7h" },
+            { name: "ขาจรสายอาร์ต", text: "ใช้เลนส์อะไรถ่ายครับเนี่ย แสงฟุ้งกำลังดีเลย", time: "8h" },
+            { name: "คนรักธรรมชาติ", text: "พิกัดที่ไหนคะเนี่ย สวยเหมือนหลุดออกมาจากภาพวาดเลย", time: "8h" },
+            { name: "User_01", text: "หล่อแบบตะโกน! หล่อจนลืมหายใจ!", time: "9h" }
+        ],
+        // โพสต์ที่ 2
+        [
+            { name: "March 7th", text: "🤩 โอ๊ยยยยย! ตันเหิงใส่หมวกซานต้า!! น่ารักจนใจเจ็บ! 💖🎄 ว่าแต่ลูกสนนั่น... นายถือไว้ก็น่ารักแล้วนะ ไม่ต้องแขวนหรอก! 55555", time: "1h" },
+            { name: "Himeko", text: "หมวกซานต้านั่นเข้ากับเธออย่างน่าประหลาดใจเลยนะ สำหรับลูกสน... ลองเอาไปแขวนไว้ที่กิ่งไม้ใกล้หน้าต่างดูสิ", time: "1h" },
+            { name: "Welt", text: "คริสต์มาส... บางครั้งความสับสนเล็กๆ น้อยๆ ก็เป็นส่วนหนึ่งของความสนุกในการฉลองนะ ลองหาที่ๆ เธอคิดว่าเหมาะสมที่สุดสิ", time: "2h" },
+            { name: "Pom-Pom", text: "ตันเหิง!! ระวังอย่าทำกระดิ่งตกใส่พรมนะ! ปอมปอมเพิ่งดูดฝุ่นไปเองนะ! 🚂💢", time: "2h" },
+            { name: "Silver Wolf", text: "อืม… ลุคใหม่ไม่เลวเลยนะ เหมือนสกินพิเศษอะไรสักอย่างเลย 🎮", time: "3h" },
+            { name: "Pela", text: "ขออนุญาตบันทึกภาพนี้ไว้ในหอจดหมายเหตุ… เป็นภาพที่ควรเก็บไว้อย่างยิ่งค่ะ", time: "3h" },
+            { name: "Lynx", text: "ถ้าหนาวก็บอกนะ ฉันมีอุปกรณ์กันหนาวสำรองอยู่ หมวกใบนั้นก็น่าจะช่วยได้บ้าง", time: "4h" },
+            { name: "Gepard", text: "กระดิ่งนั้นช่วยให้สังเกตการเคลื่อนไหวได้ง่าย เป็นตัวเลือกที่ไม่เลว", time: "5h" },
+            { name: "แฟนคลับสายเปย์", text: "อยากได้ของขวัญจากซานต้าคนนี้จังเลยค่ะ ต้องทำตัวดีแค่ไหนคะ?", time: "5h" },
+            { name: "คนผ่านไปมา", text: "ซานต้าหล่อขนาดนี้ ไม่ต้องลงปล่องไฟหรอกครับ เดินเข้าประตูหน้ามาเลย", time: "6h" },
+            { name: "แม่ค้าออนไลน์", text: "หมวกซานต้าแบบในรูปมีพร้อมส่งนะคะ สนใจทักแชทได้เลยจ้า", time: "6h" },
+            { name: "นิรนาม", text: "หน้าตาดูเหมือนโดนบังคับ แต่ทำไมออกมาดูดีขนาดนี้อ่ะ 555", time: "7h" }
+        ],
+        // โพสต์ที่ 3
+        [
+            { name: "March 7th", text: "เฮ้! แอบกินก่อนฉันได้ไง! 🍰 แล้วนั่นตุ๊กตาหมีของฉันไม่ใช่เหรอ ตันเหิงงง เอาคืนมาเลยนะ!", time: "1h" },
+            { name: "Himeko", text: "เค้กชิ้นนี้รสชาติดีทีเดียว ถือเป็นรางวัลเล็กๆ หลังจากวันที่เหนื่อยล้า", time: "2h" },
+            { name: "Welt", text: "ของหวานช่วยให้สมองปลอดโปร่งขึ้นบ้าง เหมาะกับการพักหลังงานหนัก", time: "3h" },
+            { name: "Sampo", text: "โอ้~ คุณตันเหิงนี่ใช้ชีวิตสบายดีนะครับ ตุ๊กตาหมีตัวนั้นดูมีมูลค่าไม่น้อย สนใจแลกเปลี่ยนกันไหมล่ะ?", time: "4h" },
+            { name: "Qingque", text: "กินเค้กระหว่างงานแบบนี้… ฟังดูเป็นแผนที่ดีเลยนะคะ ฉันขอจดไว้ใช้บ้าง 🀄", time: "5h" },
+            { name: "Sushang", text: "หมีนั่น… เอ๊ะ กินไม่ได้สินะ! งั้นเค้กชิ้นนั้นขอฉันลองหน่อยได้ไหมคะ?", time: "6h" },
+            { name: "Luocha", text: "ของหวานเป็นสิ่งที่ช่วยปลอบประโลมจิตใจได้ดี เป็นทางเลือกที่เหมาะสม", time: "7h" },
+            { name: "Arlan", text: "เป๊ปปี้เห็นตุ๊กตาหมีแล้วเห่าใหญ่เลย สงสัยอยากได้เพื่อนเล่นใหม่", time: "7h" },
+            { name: "แฟนคลับสายจิ้น", text: "สายตาที่มองเค้กเบาๆ แบบนั้น... อยากเป็นเค้กจังเลยค่ะ", time: "8h" },
+            { name: "คนรักของหวาน", text: "น่ากินมากกก ร้านไหนคะเนี่ย สตรอว์เบอร์รี่ลูกโตสุดๆ", time: "9h" },
+            { name: "ขาจรหน้ามึน", text: "มีหมีด้วย น่ารักจังครับ แต่คนข้างๆ น่ารักกว่า", time: "10h" },
+            { name: "สายคาเฟ่", text: "Mood & Tone รูปนี้ดีมากเลย ดูอบอุ่นสุดๆ", time: "12h" }
+        ]
+    ];
+
+    const getAvatarImg = (name) => {
+        const avatars = {
+            "March 7th": "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/0eaf8a7d7577e31c6b09b69211cc4272%20(1).jpg",
+            "Himeko": "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/540e154b7cecb9dd668c831bc10dd61f.jpg",
+            "Welt": "https://raw.githubusercontent.com/Rose5680/data-collection-r5680-x92jzk/main/21b1e936132b798dae91fa95e724ea2f.jpg"
+        };
+        if(avatars[name]) return `<img src="${avatars[name]}">`;
+        return `<div class="ig-default-avatar">${name.charAt(0)}</div>`;
+    };
+
+    const overlay = document.getElementById('ig-sheet-overlay');
+    const commentSheet = document.getElementById('ig-comment-sheet');
+    const shareSheet = document.getElementById('ig-share-sheet');
+    const commentListContainer = document.getElementById('ig-comment-list-container');
+
+    // ฟังก์ชันจัดการการเปิด/ปิด Sheet และการปัดลง (Drag to close)
+    function setupSheet(sheet) {
+        const header = sheet.querySelector('.ig-sheet-header');
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+
+        const close = () => {
+            sheet.style.transform = 'translateY(100%)';
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                sheet.classList.remove('active');
+                overlay.classList.remove('active');
+                sheet.style.transform = ''; 
+            }, 600); // รอ animation จบ
+        };
+
+        const open = () => {
+            sheet.classList.add('active');
+            overlay.classList.add('active');
+            setTimeout(() => {
+                sheet.style.transform = 'translateY(0)';
+                overlay.style.opacity = '1';
+            }, 10);
+        };
+
+        header.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            sheet.style.transition = 'none'; // ปิด transition ตอนลากเพื่อให้ติดนิ้ว
+        });
+
+        header.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            let deltaY = currentY - startY;
+            if (deltaY > 0) sheet.style.transform = `translateY(${deltaY}px)`;
+        });
+
+        header.addEventListener('touchend', () => {
+            isDragging = false;
+            sheet.style.transition = 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)'; // คืนค่า animation ช้าๆ
+            if (currentY - startY > 100) {
+                close();
+            } else {
+                sheet.style.transform = 'translateY(0)'; // เด้งกลับถ้าปัดไม่สุด
+            }
+        });
+
+        return { open, close };
+    }
+
+    const commentManager = setupSheet(commentSheet);
+    const shareManager = setupSheet(shareSheet);
+
+    overlay.addEventListener('click', () => {
+        if(commentSheet.classList.contains('active')) commentManager.close();
+        if(shareSheet.classList.contains('active')) shareManager.close();
+    });
+
+    // ผูก Event เข้ากับโพสต์ทั้ง 3 อัน
+    posts.forEach((post, index) => {
+        const btnComment = post.querySelector('.ig-btn-comment');
+        const viewCommentsText = post.querySelector('.ig-view-comments');
+        const btnShare = post.querySelector('.ig-btn-share');
+
+        const openComments = () => {
+            // Render คอมเมนต์ตาม Index โพสต์
+            commentListContainer.innerHTML = '';
+            commentData[index].forEach(c => {
+                const commentHTML = `
+                    <div class="ig-comment-item">
+                        <div class="ig-comment-avatar">${getAvatarImg(c.name)}</div>
+                        <div class="ig-comment-content">
+                            <div><span class="ig-comment-name">${c.name}</span><span class="ig-comment-text">${c.text}</span></div>
+                            <div class="ig-comment-meta">
+                                <span>${c.time}</span>
+                                <span class="ig-comment-reply">ตอบกลับ</span>
+                            </div>
+                        </div>
+                        <i class="fa-regular fa-heart ig-comment-heart"></i>
+                    </div>
+                `;
+                commentListContainer.insertAdjacentHTML('beforeend', commentHTML);
+            });
+
+            // ใส่ Event กดหัวใจในคอมเมนต์
+            document.querySelectorAll('.ig-comment-heart').forEach(heart => {
+                heart.addEventListener('click', function() {
+                    this.classList.toggle('fa-regular');
+                    this.classList.toggle('fa-solid');
+                    this.classList.toggle('liked');
+                });
+            });
+
+            commentManager.open();
+        };
+
+        btnComment.addEventListener('click', openComments);
+        viewCommentsText.addEventListener('click', openComments);
+        
+        btnShare.addEventListener('click', () => {
+            shareManager.open();
+        });
+    });
+    
+        // ===== PHASE 1: REELS LOGIC (Navigation & Autoplay) =====
+    const igMainNav = document.querySelector('.ig-main-scroll');
+    const igReelsContainer = document.getElementById('ig-reels-container');
+    const igHeader = document.querySelector('.ig-header');
+    
+    // ดึงไอคอนจาก Bottom Nav (สมมติให้ตัวที่ 2 เป็น Reels, ตัวแรกเป็น Home)
+    const navIcons = document.querySelectorAll('.ig-bottom-nav i, .ig-bottom-nav img');
+    const btnIgHome = navIcons[0]; // ไอคอนรูปบ้าน
+    const btnIgReels = navIcons[1]; // ไอคอน YouTube (ใช้แทน Reels)
+
+    const reelsItems = document.querySelectorAll('.reels-item');
+
+    // ฟังก์ชันจัดการการเล่นวิดีโอและเสียงแยกกัน
+    function handleReelsPlayback() {
+        reelsItems.forEach(item => {
+            const video = item.querySelector('video');
+            const audio = item.querySelector('audio');
+            const rect = item.getBoundingClientRect();
+            
+            // เช็คว่าคลิปนั้นอยู่ตรงกลางจอหรือไม่
+            const isVisible = (rect.top >= 0 && rect.top < window.innerHeight / 2);
+            
+            if (isVisible && igReelsContainer.style.display !== 'none') {
+                video.play().catch(()=>{});
+                audio.play().catch(()=>{});
+            } else {
+                video.pause();
+                audio.pause();
+                video.currentTime = 0; // รีเซ็ตเวลาให้เล่นใหม่เมื่อเลื่อนกลับมา
+                audio.currentTime = 0;
+            }
+        });
+    }
+
+    // เมื่อกดปุ่ม Reels ใน Nav Bar
+    btnIgReels.addEventListener('click', () => {
+        // เปลี่ยน Active state ไอคอน
+        navIcons.forEach(icon => icon.classList.remove('active'));
+        btnIgReels.classList.add('active');
+
+        // สลับ UI
+        igMainNav.style.display = 'none'; // ซ่อนหน้า Feed
+        igHeader.style.display = 'none'; // ซ่อน Header ด้านบน (IG Reels ปกติไม่มี Header นี้)
+        igReelsContainer.style.display = 'block'; // แสดงหน้า Reels
+
+        handleReelsPlayback(); // เริ่มเล่นคลิปแรก
+    });
+
+    // เมื่อกดปุ่ม Home กลับไปหน้า Feed
+    btnIgHome.addEventListener('click', () => {
+        navIcons.forEach(icon => icon.classList.remove('active'));
+        btnIgHome.classList.add('active');
+
+        igReelsContainer.style.display = 'none';
+        igMainNav.style.display = 'block';
+        igHeader.style.display = 'flex';
+
+        // หยุดวิดีโอและเสียงทั้งหมด
+        reelsItems.forEach(item => {
+            item.querySelector('video').pause();
+            item.querySelector('audio').pause();
+        });
+    });
+
+    // ดักจับการเลื่อนจอในหน้า Reels เพื่อเล่น/หยุด คลิป
+    igReelsContainer.addEventListener('scroll', () => {
+        // ใช้ setTimeout เล็กน้อยเพื่อรอให้ Snap scrolling ทำงานเสร็จ
+        clearTimeout(igReelsContainer.scrollTimeout);
+        igReelsContainer.scrollTimeout = setTimeout(handleReelsPlayback, 100);
+    });
+</script>
+</body>
+</html>
